@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Shop Tool Pro</title>
+
+<style>
+body{
+    margin:0;
+    font-family:Segoe UI;
+    background:#0a0a0a;
+    color:#e5e5e5;
+}
+
+/* NAV */
+.nav{
+    background:#111;
+    padding:10px;
+    display:flex;
+    justify-content:space-between;
+}
+
+/* AUTH */
+.auth-container{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+}
+
+.auth-box{
+    background:#111;
+    padding:30px;
+    border-radius:10px;
+    width:320px;
+}
+
+.tabs{
+    display:flex;
+    margin-bottom:20px;
+}
+
+.tab{
+    flex:1;
+    text-align:center;
+    padding:10px;
+    cursor:pointer;
+    color:#777;
+}
+
+.tab.active{
+    color:#fff;
+    border-bottom:2px solid #22c55e;
+}
+
+input{
+    width:100%;
+    padding:10px;
+    margin:8px 0;
+    border-radius:6px;
+    border:1px solid #222;
+    background:#0f0f0f;
+    color:white;
+}
+
+button{
+    padding:10px;
+    width:100%;
+    background:#22c55e;
+    border:none;
+    color:white;
+    cursor:pointer;
+}
+
+/* PANEL */
+.section{
+    padding:20px;
+}
+
+.product{
+    background:#1e293b;
+    padding:15px;
+    margin:10px;
+    display:inline-block;
+}
+
+/* SNOW */
+.snow{
+    position:fixed;
+    font-size:10px;
+    opacity:0.6;
+}
+</style>
+</head>
+
+<body>
+
+<div class="nav">
+    <div>🔥 Shop Tool</div>
+</div>
+
+<!-- AUTH -->
+<div id="auth" class="auth-container">
+    <div class="auth-box">
+
+        <div class="tabs">
+            <div class="tab active" onclick="tab('login')">Login</div>
+            <div class="tab" onclick="tab('reg')">Register</div>
+        </div>
+
+        <div id="loginBox">
+            <input id="luser" placeholder="User">
+            <input id="lpass" type="password" placeholder="Pass">
+            <button onclick="login()">Login</button>
+        </div>
+
+        <div id="regBox" style="display:none">
+            <input id="ruser" placeholder="User">
+            <input id="remail" placeholder="Email">
+            <input id="rpass" type="password" placeholder="Pass">
+            <button onclick="register()">Register</button>
+        </div>
+
+    </div>
+</div>
+
+<!-- USER -->
+<div id="userPanel" style="display:none" class="section">
+    <h2>Xin chào <span id="uname"></span></h2>
+    <p>Số dư: <span id="balance">0</span></p>
+
+    <input id="money" placeholder="Nhập tiền">
+    <button onclick="nap('card')">Nạp thẻ (-10%)</button>
+    <button onclick="nap('bank')">Bank</button>
+
+    <h3>Shop</h3>
+    <div id="shop"></div>
+
+    <button onclick="logout()">Logout</button>
+</div>
+
+<!-- ADMIN -->
+<div id="adminPanel" style="display:none" class="section">
+    <h2>👑 Admin</h2>
+
+    <input id="pname" placeholder="Tên sp">
+    <input id="pprice" placeholder="Giá">
+    <button onclick="addProduct()">Thêm</button>
+
+    <h3>User</h3>
+    <div id="users"></div>
+
+    <h3>Dashboard</h3>
+    <p>User: <span id="tUser"></span></p>
+    <p>Tổng tiền: <span id="tMoney"></span></p>
+</div>
+
+<script>
+let current=null;
+
+/* DATA */
+function getUsers(){return JSON.parse(localStorage.getItem("users")||"{}")}
+function saveUsers(u){localStorage.setItem("users",JSON.stringify(u))}
+function getProducts(){return JSON.parse(localStorage.getItem("products")||"[]")}
+function saveProducts(p){localStorage.setItem("products",JSON.stringify(p))}
+
+/* AUTH */
+function register(){
+    let u=getUsers();
+    if(!remail.value.includes("@")) return alert("Email sai");
+    if(u[ruser.value]) return alert("Tồn tại");
+
+    u[ruser.value]={pass:rpass.value,email:remail.value,balance:0,role:ruser.value==="admin"?"admin":"user"};
+    saveUsers(u);
+    alert("OK");
+}
+
+function login(){
+    let u=getUsers();
+    let user=u[luser.value];
+
+    if(!user) return alert("Sai tài khoản");
+    if(user.pass!==lpass.value) return alert("Sai mật khẩu");
+
+    current=luser.value;
+    show();
+}
+
+function tab(t){
+    loginBox.style.display=t==="login"?"block":"none";
+    regBox.style.display=t==="reg"?"block":"none";
+
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+    if(t==="login") document.querySelectorAll(".tab")[0].classList.add("active");
+    else document.querySelectorAll(".tab")[1].classList.add("active");
+}
+
+/* UI */
+function show(){
+    auth.style.display="none";
+    let u=getUsers()[current];
+
+    if(u.role==="admin"){
+        adminPanel.style.display="block";
+        loadAdmin();
+    }else{
+        userPanel.style.display="block";
+        uname.innerText=current;
+        updateUser();
+        loadShop();
+    }
+}
+
+/* USER */
+function updateUser(){
+    balance.innerText=getUsers()[current].balance;
+}
+
+function nap(type){
+    let u=getUsers();
+    let me=u[current];
+    let m=parseInt(money.value)||0;
+
+    if(type==="card") m*=0.9;
+
+    me.balance+=m;
+    saveUsers(u);
+    updateUser();
+}
+
+function loadShop(){
+    let p=getProducts();
+    shop.innerHTML=p.map((i,idx)=>
+        `<div class="product">${i.name}<br>${i.price}
+        <button onclick="buy(${idx})">Mua</button></div>`
+    ).join("");
+}
+
+function buy(i){
+    let u=getUsers();
+    let me=u[current];
+    let p=getProducts()[i];
+
+    if(me.balance<p.price) return alert("Không đủ tiền");
+
+    me.balance-=p.price;
+    saveUsers(u);
+    updateUser();
+    alert("Mua thành công");
+}
+
+/* ADMIN */
+function addProduct(){
+    let p=getProducts();
+    p.push({name:pname.value,price:parseInt(pprice.value)});
+    saveProducts(p);
+    alert("Đã thêm");
+}
+
+function loadAdmin(){
+    let u=getUsers();
+
+    users.innerHTML=Object.keys(u).map(k=>`<p>${k} - ${u[k].balance}</p>`).join("");
+
+    tUser.innerText=Object.keys(u).length;
+
+    let sum=0;
+    Object.values(u).forEach(x=>sum+=x.balance);
+    tMoney.innerText=sum;
+}
+
+/* LOGOUT */
+function logout(){location.reload()}
+
+/* SNOW (fix lag) */
+setInterval(()=>{
+    let s=document.createElement("div");
+    s.className="snow";
+    s.innerText="❄";
+    s.style.left=Math.random()*100+"vw";
+    s.style.top="-10px";
+    document.body.appendChild(s);
+
+    setTimeout(()=>s.style.top="100vh",10);
+    setTimeout(()=>s.remove(),5000);
+},500);
+
+/* KEY */
+let last=0;
+document.addEventListener("keydown",e=>{
+    let now=Date.now();
+    if(now-last<100)return;
+    last=now;
+
+    let el=document.createElement("div");
+    el.innerText=e.key;
+    el.style.position="fixed";
+    el.style.left=Math.random()*100+"vw";
+    el.style.top=Math.random()*100+"vh";
+    el.style.color="#22c55e";
+
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),500);
+});
+</script>
+
+</body>
+</html
